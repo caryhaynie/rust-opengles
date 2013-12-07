@@ -16,26 +16,23 @@ use std::cast::transmute;
 use std::cmp;
 use std::ptr;
 use std::ptr::to_unsafe_ptr;
-use std::str::from_utf8;
+use std::str::from_utf8_owned;
 use std::str::raw::from_c_str;
 use std::mem::size_of;
 use std::vec::from_elem;
 use std::vec::raw::{set_len, to_ptr};
 
 // Linking
-#[nolink]
 #[cfg(target_os = "macos")]
-#[link_args="-framework OpenGL"]
+#[link(name = "OpenGL", kind = "framework")]
 extern { }
 
-#[nolink]
 #[cfg(target_os = "linux")]
-#[link_args="-lGL"]
+#[link(name = "GL")]
 extern { }
 
-#[nolink]
 #[cfg(target_os = "android")]
-#[link_args="-lGLESv2"]
+#[link(name = "GLESv2")]
 extern { }
 
 // Constants
@@ -611,7 +608,7 @@ pub fn draw_elements_instanced(mode: GLenum, count: GLsizei, element_type: GLenu
                                 match indices {
                 Some(ref i) => cast::transmute(&i[0]),
                 None => ptr::null(),
-            }, 
+            },
                                 primcount);
     }
 }
@@ -731,7 +728,7 @@ pub fn get_program_info_log(program: GLuint) -> ~str {
                             to_unsafe_ptr(&result_len),
                             to_ptr(result) as *GLchar);
         result.truncate(if result_len > 0 {result_len-1} else {0} as uint);
-        return from_utf8(result);
+        return from_utf8_owned(result);
     }
 }
 
@@ -752,7 +749,7 @@ pub fn get_shader_info_log(shader: GLuint) -> ~str {
                            to_unsafe_ptr(&result_len),
                            to_ptr(result) as *GLchar);
         result.truncate(if result_len > 0 {result_len-1} else {0} as uint);
-        return from_utf8(result);
+        return from_utf8_owned(result);
     }
 }
 
