@@ -20,7 +20,6 @@ use std::str::from_utf8_owned;
 use std::str::raw::from_c_str;
 use std::mem::size_of;
 use std::vec::from_elem;
-use std::vec::raw::{set_len, to_ptr};
 
 // Linking
 #[cfg(target_os = "macos")]
@@ -453,7 +452,7 @@ pub fn buffer_data<T>(target: GLenum, data: &[T], usage: GLenum) {
     unsafe {
         glBufferData(target,
                      (data.len() * size_of::<T>()) as GLsizeiptr,
-                     to_ptr(data) as *GLvoid,
+                     data.as_ptr() as *GLvoid,
                      usage);
     }
 }
@@ -466,7 +465,7 @@ pub fn buffer_sub_data<T>(target: GLenum, element_offset_index: uint, data: &[T]
         glBufferSubData(target,
                         (element_offset_index * size) as GLintptr,
                         (data.len() * size) as GLsizeiptr,
-                        to_ptr(data) as *GLvoid);
+                        data.as_ptr() as *GLvoid);
     }
 }
 
@@ -514,13 +513,13 @@ pub fn cull_face(mode: GLenum) {
 
 pub fn delete_buffers(buffers: &[GLuint]) {
     unsafe {
-        glDeleteBuffers(buffers.len() as GLsizei, to_ptr(buffers));
+        glDeleteBuffers(buffers.len() as GLsizei, buffers.as_ptr());
     }
 }
 
 pub fn delete_frame_buffers(frame_buffers: &[GLuint]) {
     unsafe {
-        glDeleteFramebuffers(frame_buffers.len() as GLsizei, to_ptr(frame_buffers));
+        glDeleteFramebuffers(frame_buffers.len() as GLsizei, frame_buffers.as_ptr());
     }
 }
 
@@ -532,7 +531,7 @@ pub fn delete_program(program: GLuint) {
 
 pub fn delete_render_buffers(render_buffers: &[GLuint]) {
     unsafe {
-        glDeleteRenderbuffers(render_buffers.len() as GLsizei, to_ptr(render_buffers));
+        glDeleteRenderbuffers(render_buffers.len() as GLsizei, render_buffers.as_ptr());
     }
 }
 
@@ -544,7 +543,7 @@ pub fn delete_shader(shader: GLuint) {
 
 pub fn delete_textures(textures: &[GLuint]) {
     unsafe {
-        return glDeleteTextures(textures.len() as GLsizei, to_ptr(textures));
+        return glDeleteTextures(textures.len() as GLsizei, textures.as_ptr());
     }
 }
 
@@ -668,7 +667,7 @@ pub fn front_face(mode: GLenum) {
 pub fn gen_buffers(n: GLsizei) -> ~[GLuint] {
     unsafe {
         let result = from_elem(n as uint, 0 as GLuint);
-        glGenBuffers(n, to_ptr(result));
+        glGenBuffers(n, result.as_ptr());
         return result;
     }
 }
@@ -676,7 +675,7 @@ pub fn gen_buffers(n: GLsizei) -> ~[GLuint] {
 pub fn gen_framebuffers(n: GLsizei) -> ~[GLuint] {
     unsafe {
         let result = from_elem(n as uint, 0 as GLuint);
-        glGenFramebuffers(n, to_ptr(result));
+        glGenFramebuffers(n, result.as_ptr());
         return result;
     }
 }
@@ -684,7 +683,7 @@ pub fn gen_framebuffers(n: GLsizei) -> ~[GLuint] {
 pub fn gen_textures(n: GLsizei) -> ~[GLuint] {
     unsafe {
         let result = from_elem(n as uint, 0 as GLuint);
-        glGenTextures(n, to_ptr(result));
+        glGenTextures(n, result.as_ptr());
         return result;
     }
 }
@@ -694,7 +693,7 @@ pub fn gen_textures(n: GLsizei) -> ~[GLuint] {
 pub fn gen_vertex_arrays(n: GLsizei) -> ~[GLuint] {
     unsafe {
         let result = from_elem(n as uint, 0 as GLuint);
-        glGenVertexArrays(n, to_ptr(result));
+        glGenVertexArrays(n, result.as_ptr());
         return result;
     }
 }
@@ -726,7 +725,7 @@ pub fn get_program_info_log(program: GLuint) -> ~str {
         glGetProgramInfoLog(program,
                             1024 as GLsizei,
                             to_unsafe_ptr(&result_len),
-                            to_ptr(result) as *GLchar);
+                            result.as_ptr() as *GLchar);
         result.truncate(if result_len > 0 {result_len-1} else {0} as uint);
         return from_utf8_owned(result);
     }
@@ -747,7 +746,7 @@ pub fn get_shader_info_log(shader: GLuint) -> ~str {
         glGetShaderInfoLog(shader,
                            1024 as GLsizei,
                            to_unsafe_ptr(&result_len),
-                           to_ptr(result) as *GLchar);
+                           result.as_ptr() as *GLchar);
         result.truncate(if result_len > 0 {result_len-1} else {0} as uint);
         return from_utf8_owned(result);
     }
@@ -862,15 +861,13 @@ pub fn read_pixels(x: GLint, y: GLint, width: GLsizei, height: GLsizei, format: 
     let mut pixels: ~[u8] = ~[];
     pixels.reserve(len);
 
-    pixels.as_mut_buf(proc(buf, _) {
-        unsafe {
-            // We don't want any alignment padding on pixel rows.
-            glPixelStorei(PACK_ALIGNMENT, 1);
-            glReadPixels(x, y, width, height, format, pixel_type, buf as *mut c_void);
-        }
-    });
+    unsafe {
+        // We don't want any alignment padding on pixel rows.
+        glPixelStorei(PACK_ALIGNMENT, 1);
+        glReadPixels(x, y, width, height, format, pixel_type, pixels.as_mut_ptr() as *mut c_void);
+    }
 
-    unsafe { set_len(&mut pixels, len); }
+    unsafe { pixels.set_len(len); }
 
     pixels
 }
@@ -883,10 +880,10 @@ pub fn scissor(x: GLint, y: GLint, width: GLsizei, height: GLsizei) {
 
 pub fn shader_source(shader: GLuint, strings: &[~[u8]]) {
     unsafe {
-        let pointers = strings.map(|string| to_ptr(*string));
+        let pointers = strings.map(|string| (*string).as_ptr());
         let lengths = strings.map(|string| string.len() as GLint);
         glShaderSource(shader, pointers.len() as GLsizei,
-                       to_ptr(pointers) as **GLchar, to_ptr(lengths));
+                       pointers.as_ptr() as **GLchar, lengths.as_ptr());
         destroy(lengths);
         destroy(pointers);
     }
@@ -905,7 +902,7 @@ pub fn tex_image_2d(target: GLenum,
     match opt_data {
         Some(data) => {
             unsafe {
-                let pdata = transmute(to_ptr(data));
+                let pdata = transmute(data.as_ptr());
                 glTexImage2D(target, level, internal_format, width, height, border, format, ty,
                              pdata);
             }
@@ -932,7 +929,7 @@ pub fn tex_sub_image_2d(target: GLenum,
     match opt_data {
         Some(data) => {
             unsafe {
-                let pdata = transmute(to_ptr(data));
+                let pdata = transmute(data.as_ptr());
                 glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, ty,
                                 pdata);
             }
@@ -1082,10 +1079,9 @@ pub fn viewport(x: GLint, y: GLint, width: GLsizei, height: GLsizei) {
 pub mod apple {
     use super::{GLenum, GLsizei};
     use std::cast::transmute;
-    use std::vec::raw::to_ptr;
 
     pub unsafe fn texture_range(target: GLenum, buffer: &[u8]) {
-        super::glTextureRangeAPPLE(target, buffer.len() as GLsizei, transmute(to_ptr(buffer)));
+        super::glTextureRangeAPPLE(target, buffer.len() as GLsizei, transmute(buffer.as_ptr()));
     }
 }
 
